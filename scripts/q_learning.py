@@ -4,6 +4,10 @@ import rospy
 import numpy as np
 import os
 
+from gazebo_msgs.msg import ModelState, ModelStates
+from geometry_msgs.msg import Point, Pose, Quaternion, Twist, Vector3
+from q_learning_project.msg import RobotMoveObjectToTag, QLearningReward, QMatrix
+
 # Path of directory on where this file is located
 path_prefix = os.path.dirname(__file__) + "/action_states/"
 
@@ -47,13 +51,15 @@ class QLearning(object):
         # Setup publishers and subscribers
 
          # publish the current Q-matrix
-         self.q_pub = rospy.Publisher("q_matrix", QMatrix, queue_size=10)
+         self.q_pub = rospy.Publisher("/q_learning/q_matrix", QMatrix, queue_size=10)
 
          # subscribe to the reward topic
-         rospy.Subscriber(self.reward_topic, QLearningReward, self.reward_received)
+         rospy.Subscriber("/q_learning/q_matrix", QLearningReward, self.reward_received)
 
          # publish the action 
-         self.action_pub = rospy.Publisher("robot_action", RobotMoveObjectToTag, queue_size=10)
+         self.action_pub = rospy.Publisher("/q_learning/robot_action", RobotMoveObjectToTag, queue_size=10)
+
+
 
 
     def save_q_matrix(self):
