@@ -28,7 +28,8 @@ class QLearning(object):
         
         #Initialize our Q-matrix as a series of zeros over 64 rows for each state
         #and 9 columns for each possible action
-        self.init_q = np.loadtxt(path_prefix + "init_q.txt")
+        self.q = np.loadtxt(path_prefix + "init_q.txt")
+        self.reward = 0
 
         # Fetch actions. These are the only 9 possible actions the system can take.
         # self.actions is an array of dictionaries where the row index corresponds
@@ -54,15 +55,37 @@ class QLearning(object):
 
         # Setup publishers and subscribers
 
-         # publish the current Q-matrix
-         self.q_pub = rospy.Publisher("/q_learning/q_matrix", QMatrix, queue_size=10)
+        # publish the current Q-matrix
+        self.q_pub = rospy.Publisher("/q_learning/q_matrix", QMatrix, queue_size=10)
 
-         # subscribe to the reward topic
-         rospy.Subscriber("/q_learning/q_matrix", QLearningReward, self.reward_received)
+        # subscribe to the reward topic
+        rospy.Subscriber("/q_learning/q_matrix", QLearningReward, self.reward_received)
 
-         # publish the action 
-         self.action_pub = rospy.Publisher("/q_learning/robot_action", RobotMoveObjectToTag, queue_size=10)
+        # publish the action 
+        self.action_pub = rospy.Publisher("/q_learning/robot_action", RobotMoveObjectToTag, queue_size=10)
 
+    def update_q_matrix(self):
+        q_copy = self.q
+        iterations = 0
+        error = 0.001
+        state = 0
+        while iterations < 10:
+            actions = []
+            for action in self.action_matrix[state]:
+                if action != -1:
+                    actions.append(action)
+            action = np.random.choice(actions)
+            state = self.action_matrix[state].index(action)
+            # get the reward 
+            for row in self.q:
+                for col in self.q:
+
+            #update the matrix
+            if diff < error:
+                iterations += 1
+        return 
+
+    def reward_received(self):
 
 
 
