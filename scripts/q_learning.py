@@ -44,6 +44,18 @@ class QLearning(object):
         self.states = np.loadtxt(path_prefix + "states.txt")
         self.states = list(map(lambda x: list(map(lambda y: int(y), x)), self.states))
 
+        # Setup publishers and subscribers
+
+         # publish the current Q-matrix
+         self.q_pub = rospy.Publisher("q_matrix", QMatrix, queue_size=10)
+
+         # subscribe to the reward topic
+         rospy.Subscriber(self.reward_topic, QLearningReward, self.reward_received)
+
+         # publish the action 
+         self.action_pub = rospy.Publisher("robot_action", RobotMoveObjectToTag, queue_size=10)
+
+
     def save_q_matrix(self):
         # TODO: You'll want to save your q_matrix to a file once it is done to
         # avoid retraining
