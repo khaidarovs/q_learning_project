@@ -25,6 +25,10 @@ class QLearning(object):
         #
         # e.g. self.action_matrix[0][12] = 5
         self.action_matrix = np.loadtxt(path_prefix + "action_matrix.txt")
+        
+        #Initialize our Q-matrix as a series of zeros over 64 rows for each state
+        #and 9 columns for each possible action
+        self.init_q = np.loadtxt(path_prefix + "init_q.txt")
 
         # Fetch actions. These are the only 9 possible actions the system can take.
         # self.actions is an array of dictionaries where the row index corresponds
