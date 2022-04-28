@@ -65,9 +65,8 @@ class QLearning(object):
         self.action_pub = rospy.Publisher("/q_learning/robot_action", RobotMoveObjectToTag, queue_size=10)
 
     def update_q_matrix(self):
-        q_copy = self.q
         iterations = 0
-        error = 0.001
+        changed = False
         state = 0
         while iterations < 10:
             actions = []
@@ -75,17 +74,25 @@ class QLearning(object):
                 if action != -1:
                     actions.append(action)
             action = np.random.choice(actions)
-            state = self.action_matrix[state].index(action)
-            # get the reward 
-            for row in self.q:
-                for col in self.q:
-
-            #update the matrix
-            if diff < error:
+            new_state = self.action_matrix[state].index(action)
+            # Publish the action we selected
+            my_action = RobotMoveObjectToTag(robot_object = self.actions[action]["object"], tag_id = self.actions[action]["tag"])
+            self.action_pub.publish(my_action)
+            rospy.sleep(1) # Give time for the reward to be received
+            old_val = self.q[state][action]
+            self.q[state][action] = self.q[state][action] + 1 * (self.reward + 0.5 * max(self.q[new_state] - self.q[state][action]))
+            if self.q[state][action] == old_val:
+                changed = False
                 iterations += 1
+            else:
+                changed = True
+                iterations = 0
+            state = new_state
         return 
 
-    def reward_received(self):
+    def reward_received(self, data):
+        self.reward = data.reward
+        return
 
 
 
