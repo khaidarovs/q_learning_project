@@ -1,7 +1,7 @@
 <launch>
 
-      <node pkg="src/q_learning_project" type="virtual_reset_world" name="virtual_reset_world"/>
-      <node pkg="src/q_learning_project" type="q_learning" name="q_learning" output="screen"/>
+      <node pkg="q_learning_project" type="virtual_reset_world" name="virtual_reset_world"/>
+      <node pkg="q_learning_project" type="q_learning" name="q_learning" output="screen"/>
       
   
 </launch>
