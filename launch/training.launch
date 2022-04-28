@@ -1,1 +1,16 @@
-<!-- TODO -->
+<launch>
+      <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
+      <arg name="x_pos" default="0.0"/>
+      <arg name="y_pos" default="0.0"/>
+      <arg name="z_pos" default="0.0"/>
+
+     
+
+      <param name="robot_description" command="$(find xacro)/xacro --inorder $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro"/>
+
+      <node pkg="gazebo_ros" type="spawn_model" name="spawn_urdf" args="-urdf -model turtlebot3_$(arg model) -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -param robot_description"/>
+
+      <node pkg="q_learning_project" type="virtual_reset_world" name="virtual_reset_world"/>
+      <node pkg="q_learning_project" type="q_learning" name="q_learning"/>
+  
+    </launch>
