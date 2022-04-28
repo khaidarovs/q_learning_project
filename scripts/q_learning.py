@@ -66,7 +66,7 @@ class QLearning(object):
 
     def update_q_matrix(self):
         iterations = 0
-        changed = False
+        # changed = False
         state = 0
         while iterations < 10:
             actions = []
@@ -82,10 +82,10 @@ class QLearning(object):
             old_val = self.q[state][action]
             self.q[state][action] = self.q[state][action] + 1 * (self.reward + 0.5 * max(self.q[new_state]) - self.q[state][action])
             if self.q[state][action] == old_val:
-                changed = False
+                # changed = False
                 iterations += 1
             else:
-                changed = True
+                # changed = True
                 iterations = 0
             state = new_state
         return 
@@ -94,12 +94,15 @@ class QLearning(object):
         self.reward = data.reward
         return
 
-
-
     def save_q_matrix(self):
         # TODO: You'll want to save your q_matrix to a file once it is done to
         # avoid retraining
         return
+    
+    def run(self):
+        # Keep the program alive.
+        self.update_q_matrix()
 
 if __name__ == "__main__":
     node = QLearning()
+    node.run()
