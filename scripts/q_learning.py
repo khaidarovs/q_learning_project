@@ -30,6 +30,7 @@ class QLearning(object):
         #and 9 columns for each possible action
         self.q = np.loadtxt(path_prefix + "init_q.txt")
         self.reward = 0
+        self.reward_received = False
 
         # Fetch actions. These are the only 9 possible actions the system can take.
         # self.actions is an array of dictionaries where the row index corresponds
@@ -70,10 +71,11 @@ class QLearning(object):
         # changed = False
         state = 0
         while iterations < 10:
-            print("State is", state)
+            self.reward_received = False
             if count % 3 == 0:
                 count = 0
                 state = 0
+            print("State is", state)
             actions = []
             for action in self.action_matrix[state]:
                 if action != -1:
@@ -87,7 +89,9 @@ class QLearning(object):
             print("Object is", self.actions[action]["object"])
             print("tag is", self.actions[action]["tag"])
             self.action_pub.publish(my_action)
-            #rospy.sleep(1) # Give time for the reward to be received
+            while self.reward_received is False:
+                rospy.sleep()
+            # rospy.sleep(2) # Give time for the reward to be received
             old_val = self.q[state][action]
             print("reward is", self.reward)
             self.q[state][action] = self.q[state][action] + 1 * (self.reward + 0.5 * max(self.q[new_state]) - self.q[state][action])
@@ -103,6 +107,7 @@ class QLearning(object):
     def reward_received(self, data):
         print("data reward is", data.reward)
         self.reward = data.reward
+        self.reward_received = True
         return
 
     def save_q_matrix(self):
