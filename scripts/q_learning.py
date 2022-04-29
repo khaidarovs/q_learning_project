@@ -84,6 +84,8 @@ class QLearning(object):
             new_state = self.action_matrix[state].tolist().index(action)
             # Publish the action we selected
             my_action = RobotMoveObjectToTag(robot_object = self.actions[action]["object"], tag_id = self.actions[action]["tag"])
+            print("Object is", self.actions[action]["object"])
+            print("tag is", self.actions[action]["tag"])
             self.action_pub.publish(my_action)
             #rospy.sleep(1) # Give time for the reward to be received
             old_val = self.q[state][action]
