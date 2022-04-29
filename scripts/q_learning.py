@@ -66,14 +66,19 @@ class QLearning(object):
 
     def update_q_matrix(self):
         iterations = 0
+        count = 0
         # changed = False
         state = 0
         while iterations < 10:
+            if count % 3 == 0:
+                count = 0
+                state = 0
             actions = []
             for action in self.action_matrix[state]:
                 if action != -1:
                     actions.append(action)
             action = int(np.random.choice(actions))
+            count += 1
             new_state = self.action_matrix[state].tolist().index(action)
             # Publish the action we selected
             my_action = RobotMoveObjectToTag(robot_object = self.actions[action]["object"], tag_id = self.actions[action]["tag"])
