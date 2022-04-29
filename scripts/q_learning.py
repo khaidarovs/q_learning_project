@@ -59,7 +59,7 @@ class QLearning(object):
         self.q_pub = rospy.Publisher("/q_learning/q_matrix", QMatrix, queue_size=10)
 
         # subscribe to the reward topic
-        rospy.Subscriber("/q_learning/q_matrix", QLearningReward, self.reward_received)
+        rospy.Subscriber("/q_learning/reward", QLearningReward, self.reward_received)
 
         # publish the action 
         self.action_pub = rospy.Publisher("/q_learning/robot_action", RobotMoveObjectToTag, queue_size=10)
@@ -70,6 +70,7 @@ class QLearning(object):
         # changed = False
         state = 0
         while iterations < 10:
+            print("State is", state)
             if count % 3 == 0:
                 count = 0
                 state = 0
@@ -78,13 +79,15 @@ class QLearning(object):
                 if action != -1:
                     actions.append(action)
             action = int(np.random.choice(actions))
+            print("Action is", action)
             count += 1
             new_state = self.action_matrix[state].tolist().index(action)
             # Publish the action we selected
             my_action = RobotMoveObjectToTag(robot_object = self.actions[action]["object"], tag_id = self.actions[action]["tag"])
             self.action_pub.publish(my_action)
-            rospy.sleep(1) # Give time for the reward to be received
+            #rospy.sleep(1) # Give time for the reward to be received
             old_val = self.q[state][action]
+            print("reward is", self.reward)
             self.q[state][action] = self.q[state][action] + 1 * (self.reward + 0.5 * max(self.q[new_state]) - self.q[state][action])
             if self.q[state][action] == old_val:
                 # changed = False
@@ -96,6 +99,7 @@ class QLearning(object):
         return 
 
     def reward_received(self, data):
+        print("data reward is", data.reward)
         self.reward = data.reward
         return
 
