@@ -52,7 +52,14 @@ Based off a fixed number of iterations without change in updated reward values (
 ### Q-learning algorithm description
 
 #### Selecting and executing actions for the robot (or phantom robot) to take
+-	Location: inside the update_q_matrix function
+-	Description: In order to determine what action the robot should select, we first create a list of valid actions for the current state of the robot by traversing through the action_matrix and selecting the valid state transitions and corresponding actions for that specific state. We then randomly choose one of the valid actions. 
 
 #### Updating the Q-matrix
+-	Location: inside the update_q_matrix function
+-	Description: Once we have selected and executed the action, we publish it using the corresponding publisher, receive the reward and then update the q-matrix according to the formula covered in class. We set alpha equal to 1 and gamma equal to 0.5. We then update the state and repeat the process for that state. 
 
 #### Determining when to stop iterating through the Q-learning algorithm
+-	Location: inside the update_q_matrix function
+-	Description: There are two ways in which we would decide when to stop iterating through the algorithm. Firstly, the variable iterations measures the number of iterations since the matrix was last updated. Through trial and error we found that 75 is a suitable number of such iterations to make sure that the matrix has converged. The second way is the count variable which measures the total number of iterations through the algorithm. We keep iterating until count reaches 1000, which we also decided would be a suitable cap on the number of iterations (through a series of experiments) to make sure that the matrix has converged. 
+
