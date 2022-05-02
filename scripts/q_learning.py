@@ -73,7 +73,7 @@ class QLearning(object):
         count = 0
         # changed = False
         state = 0
-        while iterations < 100 or count < 1000:
+        while iterations < 75 or count < 1000:
             self.reward_rcv = False
             if count % 3 == 0:
                 state = 0
