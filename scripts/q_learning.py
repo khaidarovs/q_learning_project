@@ -8,6 +8,7 @@ import pandas as pd
 from gazebo_msgs.msg import ModelState, ModelStates
 from geometry_msgs.msg import Point, Pose, Quaternion, Twist, Vector3
 from q_learning_project.msg import RobotMoveObjectToTag, QLearningReward, QMatrix
+from std_msgs.msg import Header
 
 # Path of directory on where this file is located
 path_prefix = os.path.dirname(__file__) + "/action_states/"
@@ -71,47 +72,42 @@ class QLearning(object):
     def update_q_matrix(self):
         iterations = 0
         count = 0
-        # changed = False
         state = 0
         while iterations < 75 or count < 1000:
             self.reward_rcv = False
             if count % 3 == 0:
                 state = 0
-            # print("State is", state)
             actions = []
             for action in self.action_matrix[state]:
                 if action != -1:
-                    actions.append(action)
-            action = int(np.random.choice(actions))
-            # print("Action is", action)
+                    actions.append(action) # Filter for valid actions
+            action = int(np.random.choice(actions)) # Select randomly an action from the list of valid actions
             count += 1
             new_state = self.action_matrix[state].tolist().index(action)
             # Publish the action we selected
             my_action = RobotMoveObjectToTag(robot_object = self.actions[action]["object"], tag_id = self.actions[action]["tag"])
-            # print("Object is", self.actions[action]["object"])
-            # print("tag is", self.actions[action]["tag"])
             self.action_pub.publish(my_action)
+            # Make sure the reward has been received
             r = rospy.Rate(5)
             while not self.reward_rcv:
                 r.sleep()
             old_val = self.q[state][action]
-            # print("reward is", self.reward)
+            # Update the Q-matrix
             self.q[state][action] = old_val + 1 * (self.reward + 0.5 * max(self.q[new_state]) - self.q[state][action])
-            # print("old val is", old_val)
-            if self.reward == 100:
-                print("new val:", self.q[state][action])
-            if self.q[state][action] == old_val:
-                # changed = False
+            if self.q[state][action] == old_val: # If the value didn't change, increment iterations
                 iterations += 1
             else:
-                # changed = True
                 iterations = 0
             state = new_state
-        print(self.q)
+            # Publish the updated Q-matrix
+            matrix_msg = QMatrix()
+            matrix_msg.header = Header(stamp=rospy.Time.now())
+            matrix_msg.q_matrix = self.q
+            self.q_pub.publish(matrix_msg)
         return 
 
     def reward_received(self, data):
-        # print("data reward is", data.reward)
+        # Receive the reward and assign it to self.reward
         self.reward = data.reward
         self.reward_rcv = True
         return
@@ -120,16 +116,12 @@ class QLearning(object):
         # TODO: You'll want to save your q_matrix to a file once it is done to
         # avoid retraining
         df = pd.DataFrame(self.q)
-        print("cwd is", os.getcwd())
-        print("df", df)
-        with open("q_matrix.csv", 'w') as csv_file: #saves it correctly but doesn't save in the correct directory
+        with open("q_matrix.csv", 'w') as csv_file: 
             df.to_csv(path_or_buf = csv_file)
-        print("done")
-        # pd.DataFrame(self.q).to_csv(os.getcwd() + "q_matrix.csv")
         return
     
     def run(self):
-        # Keep the program alive.
+        # Give time for all publishers to initialize
         rospy.sleep(3)
         self.update_q_matrix()
         self.save_q_matrix()
