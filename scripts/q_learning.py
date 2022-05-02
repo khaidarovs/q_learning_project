@@ -3,6 +3,7 @@
 import rospy
 import numpy as np
 import os
+import pandas as pd
 
 from gazebo_msgs.msg import ModelState, ModelStates
 from geometry_msgs.msg import Point, Pose, Quaternion, Twist, Vector3
@@ -72,7 +73,7 @@ class QLearning(object):
         count = 0
         # changed = False
         state = 0
-        while iterations < 100 or count < 10000:
+        while iterations < 100 or count < 1000:
             self.reward_rcv = False
             if count % 3 == 0:
                 state = 0
@@ -118,12 +119,20 @@ class QLearning(object):
     def save_q_matrix(self):
         # TODO: You'll want to save your q_matrix to a file once it is done to
         # avoid retraining
+        df = pd.DataFrame(self.q)
+        print("cwd is", os.getcwd())
+        print("df", df)
+        with open("q_matrix.csv", 'w') as csv_file: #saves it correctly but doesn't save in the correct directory
+            df.to_csv(path_or_buf = csv_file)
+        print("done")
+        # pd.DataFrame(self.q).to_csv(os.getcwd() + "q_matrix.csv")
         return
     
     def run(self):
         # Keep the program alive.
         rospy.sleep(3)
         self.update_q_matrix()
+        self.save_q_matrix()
 
 if __name__ == "__main__":
     node = QLearning()
