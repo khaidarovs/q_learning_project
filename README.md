@@ -43,7 +43,11 @@ Sanzhar Khaidarov, Max Lederman
 
 ### Objectives description
 
+The objective of this project was to take a predetermined final state that is unknown to us that grants a reward and have our Q-learning algorithm continuously loop through until it converges upon a Q-matrix that provides a reward path for the robot to reach the final goal. Once the Q-matrix has been correctly achieved, we then need to translate it to an action sequence for the robot to take to properly move the objects to the correct AR codes after having identified these. 
+
 ### High-level description
+
+Based off a fixed number of iterations without change in updated reward values (or after a maximum number of total itierations), we loop our Q-learning algorithm. Within this algorithm, we begin by randomly choosing a valid action within our state that brings us to our next state, and then using the current and next state, update our Q-matrix using the equation given to us, with 𝛂 at 1 and 𝛾 at 0.5. After this, we update our iteration value depending on if the Q-matrix changes, and if we have reach a final state (the algorithm has looped 3 times in a row), then we reset the state to 0. 
 
 ### Q-learning algorithm description
 
