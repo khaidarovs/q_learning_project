@@ -43,12 +43,23 @@ Sanzhar Khaidarov, Max Lederman
 
 ### Objectives description
 
+The objective of this project was to take a predetermined final state that is unknown to us that grants a reward and have our Q-learning algorithm continuously loop through until it converges upon a Q-matrix that provides a reward path for the robot to reach the final goal. Once the Q-matrix has been correctly achieved, we then need to translate it to an action sequence for the robot to take to properly move the objects to the correct AR codes after having identified these. 
+
 ### High-level description
+
+Based off a fixed number of iterations without change in updated reward values (or after a maximum number of total itierations), we loop our Q-learning algorithm. Within this algorithm, we begin by randomly choosing a valid action within our state that brings us to our next state, and then using the current and next state, update our Q-matrix using the equation given to us, with 𝛂 at 1 and 𝛾 at 0.5. After this, we update our iteration value depending on if the Q-matrix changes, and if we have reach a final state (the algorithm has looped 3 times in a row), then we reset the state to 0. 
 
 ### Q-learning algorithm description
 
 #### Selecting and executing actions for the robot (or phantom robot) to take
+-	Location: inside the update_q_matrix function
+-	Description: In order to determine what action the robot should select, we first create a list of valid actions for the current state of the robot by traversing through the action_matrix and selecting the valid state transitions and corresponding actions for that specific state. We then randomly choose one of the valid actions. 
 
 #### Updating the Q-matrix
+-	Location: inside the update_q_matrix function
+-	Description: Once we have selected and executed the action, we publish it using the corresponding publisher, receive the reward and then update the q-matrix according to the formula covered in class. We set alpha equal to 1 and gamma equal to 0.5. We then update the state and repeat the process for that state. 
 
 #### Determining when to stop iterating through the Q-learning algorithm
+-	Location: inside the update_q_matrix function
+-	Description: There are two ways in which we would decide when to stop iterating through the algorithm. Firstly, the variable iterations measures the number of iterations since the matrix was last updated. Through trial and error we found that 75 is a suitable number of such iterations to make sure that the matrix has converged. The second way is the count variable which measures the total number of iterations through the algorithm. We keep iterating until count reaches 1000, which we also decided would be a suitable cap on the number of iterations (through a series of experiments) to make sure that the matrix has converged. 
+
