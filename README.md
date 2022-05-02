@@ -39,3 +39,16 @@ Sanzhar Khaidarov, Max Lederman
 - Before Class 12: Write the action part of the code
 - Weekend before it's due: Final tests and corrections
 
+## Writeup
+
+### Objectives description
+
+### High-level description
+
+### Q-learning algorithm description
+
+#### Selecting and executing actions for the robot (or phantom robot) to take
+
+#### Updating the Q-matrix
+
+#### Determining when to stop iterating through the Q-learning algorithm
