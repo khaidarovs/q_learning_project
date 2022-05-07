@@ -117,7 +117,7 @@ class QLearning(object):
         # avoid retraining
         df = pd.DataFrame(self.q)
         with open("q_matrix.csv", 'w') as csv_file: 
-            df.to_csv(path_or_buf = csv_file)
+            df.to_csv(path_or_buf = csv_file, index = False, header = False)
         return
     
     def run(self):
