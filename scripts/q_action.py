@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-import rospy
+from asyncio.windows_events import NULL
+import rospy, cv2, cv_bridge
 import numpy as np
 import os
 import pandas as pd
@@ -9,9 +10,16 @@ from gazebo_msgs.msg import ModelState, ModelStates
 from geometry_msgs.msg import Point, Pose, Quaternion, Twist, Vector3
 from q_learning_project.msg import RobotMoveObjectToTag, QLearningReward, QMatrix
 from std_msgs.msg import Header
+from sensor_msgs.msg import Image
+
+import moveit_commander
+import math
+# import the custom message
+from class_meeting_08_kinematics.msg import Traffic
 
 # Path of directory on where this file is located
 path_prefix = os.path.dirname(__file__) + "/action_states/"
+path_prefix_q = os.path.dirname(__file__) + "/"
 
 class QAction(object):
     def __init__(self):
@@ -30,9 +38,8 @@ class QAction(object):
         
         #Initialize our Q-matrix as a series of zeros over 64 rows for each state
         #and 9 columns for each possible action
-        self.q = np.loadtxt(path_prefix + "init_q.txt")
-        self.reward = 0
-        self.reward_rcv = False
+        self.q = np.genfromtxt(path_prefix_q + "q_matrix.csv")
+        self.state = 0
 
         # Fetch actions. These are the only 9 possible actions the system can take.
         # self.actions is an array of dictionaries where the row index corresponds
@@ -44,7 +51,6 @@ class QAction(object):
             lambda x: {"object": colors[int(x[0])], "tag": int(x[1])},
             self.actions
         ))
-
 
         # Fetch states. There are 64 states. Each row index corresponds to the
         # state number, and the value is a list of 3 items indicating the positions
@@ -58,74 +64,110 @@ class QAction(object):
 
         # Setup publishers and subscribers
 
-        # publish the current Q-matrix
-        self.q_pub = rospy.Publisher("/q_learning/q_matrix", QMatrix, queue_size=10)
-
-        # subscribe to the reward topic
-        rospy.Subscriber("/q_learning/reward", QLearningReward, self.reward_received)
-
         # publish the action 
         self.action_pub = rospy.Publisher("/q_learning/robot_action", RobotMoveObjectToTag, queue_size=10)
 
 
-    
-    def update_q_matrix(self):
-        iterations = 0
-        count = 0
-        state = 0
-        while iterations < 75 or count < 1000:
-            self.reward_rcv = False
-            if count % 3 == 0:
-                state = 0
-            actions = []
-            for action in self.action_matrix[state]:
-                if action != -1:
-                    actions.append(action) # Filter for valid actions
-            action = int(np.random.choice(actions)) # Select randomly an action from the list of valid actions
-            count += 1
-            new_state = self.action_matrix[state].tolist().index(action)
-            # Publish the action we selected
-            my_action = RobotMoveObjectToTag(robot_object = self.actions[action]["object"], tag_id = self.actions[action]["tag"])
-            self.action_pub.publish(my_action)
-            # Make sure the reward has been received
-            r = rospy.Rate(5)
-            while not self.reward_rcv:
-                r.sleep()
-            old_val = self.q[state][action]
-            # Update the Q-matrix
-            self.q[state][action] = old_val + 1 * (self.reward + 0.5 * max(self.q[new_state]) - self.q[state][action])
-            if self.q[state][action] == old_val: # If the value didn't change, increment iterations
-                iterations += 1
-            else:
-                iterations = 0
-            state = new_state
-            # Publish the updated Q-matrix
-            matrix_msg = QMatrix()
-            matrix_msg.header = Header(stamp=rospy.Time.now())
-            matrix_msg.q_matrix = self.q
-            self.q_pub.publish(matrix_msg)
+    def choose_next_action(self):
+        next_action = self.q[self.state].tolist().index(max(self.q[self.state]))
+        new_state = self.action_matrix[self.state].tolist().index(next_action)
+        self.state = new_state
+        # Publish the action 
+        my_action = RobotMoveObjectToTag(robot_object = self.actions[next_action]["object"], tag_id = self.actions[next_action]["tag"])
+        self.action_pub.publish(my_action)
         return 
-
-    def reward_received(self, data):
-        # Receive the reward and assign it to self.reward
-        self.reward = data.reward
-        self.reward_rcv = True
-        return
-
-    def save_q_matrix(self):
-        # TODO: You'll want to save your q_matrix to a file once it is done to
-        # avoid retraining
-        df = pd.DataFrame(self.q)
-        with open("q_matrix.csv", 'w') as csv_file: 
-            df.to_csv(path_or_buf = csv_file, index = False, header = False)
-        return
     
     def run(self):
         # Give time for all publishers to initialize
         rospy.sleep(3)
-        self.update_q_matrix()
-        self.save_q_matrix()
+        self.choose_next_action()
+
+
+class ExecuteAction(object):
+    def __init__(self):
+        # Initialize this node
+        rospy.init_node("execute_action")
+
+        # Initialize the object and the tag we need
+        self.object = NULL
+        self.tag = NULL
+
+        # Setup publishers and subscribers
+
+        # subscribe to the action topic
+        rospy.Subscriber("/q_learning/robot_action", RobotMoveObjectToTag, self.action_received)
+
+        # subscribe to the robot's RGB camera data stream
+        self.image_sub = rospy.Subscriber('camera/rgb/image_raw',
+                Image, self.image_callback)
+
+        # Publish robot movements
+        self.robot_movement_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+
+    def action_received(self, data):
+        self.object = data.robot_object
+        self.tag = data.tag_id
+        return
+
+    def image_callback(self, msg):
+
+        # converts the incoming ROS message to OpenCV format and HSV (hue, saturation, value)
+        image = self.bridge.imgmsg_to_cv2(msg,desired_encoding='bgr8')
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+        # TODO: define the upper and lower bounds for what should be considered 'yellow'
+        # Note: see class page for hints on this
+
+        lower_yellow = numpy.array([14.9, 0, 50]) #TODO
+        upper_yellow = numpy.array([14.9, 255, 255]) #TODO
+
+        # orange_min = numpy.uint8([[[0,102,204 ]]])
+        # orange_max = numpy.uint8([[[153,204,255 ]]])
+        # hsv_orange_min = cv2.cvtColor(orange_min,cv2.COLOR_BGR2HSV)
+        # hsv_orange_max = cv2.cvtColor(orange_max,cv2.COLOR_BGR2HSV)
+        
+        # this erases all pixels that aren't yellow
+        mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
+
+        # this limits our search scope to only view a slice of the image near the ground
+        h, w, d = image.shape
+        search_top = int(3*h/4)
+        search_bot = int(3*h/4 + 20)
+        mask[0:search_top, 0:w] = 0
+        mask[search_bot:h, 0:w] = 0
+
+        # using moments() function, the center of the yellow pixels is determined
+        M = cv2.moments(mask)
+        # if there are any yellow pixels found
+        if M['m00'] > 0:
+                # center of the yellow pixels in the image
+                cx = int(M['m10']/M['m00'])
+                cy = int(M['m01']/M['m00'])
+
+                print(cx, cy)
+                # a red circle is visualized in the debugging window to indicate
+                # the center point of the yellow pixels
+                # hint: if you don't see a red circle, check your bounds for what is considered 'yellow'
+                cv2.circle(image, (cx, cy), 20, (0,0,255), -1)
+
+                my_twist = Twist(linear=Vector3(0.05, 0, 0), angular=Vector3(0, 0, 0.001*(-cx + 160)))
+                self.robot_movement_pub.publish(my_twist)
+                # TODO: based on the location of the line (approximated
+                #       by the center of the yellow pixels), implement
+                #       proportional control to have the robot follow
+                #       the yellow line
+
+        # shows the debugging window
+        # hint: you might want to disable this once you're able to get a red circle in the debugging window
+        cv2.imshow("window", image) 
+        cv2.waitKey(3)
+    
+    def run(self):
+        # Give time for all publishers to initialize
+        rospy.spin()
 
 if __name__ == "__main__":
-    node = QLearning()
-    node.run()
+    node1 = QAction()
+    node2 = ExecuteAction()
+    node1.run()
+    node2.run()
