@@ -11,6 +11,7 @@ from geometry_msgs.msg import Point, Pose, Quaternion, Twist, Vector3
 from q_learning_project.msg import RobotMoveObjectToTag, QLearningReward, QMatrix
 from std_msgs.msg import Header
 from sensor_msgs.msg import Image
+from sensor_msgs.msg import LaserScan
 
 import moveit_commander
 import math
@@ -62,10 +63,28 @@ class QAction(object):
         self.states = np.loadtxt(path_prefix + "states.txt")
         self.states = list(map(lambda x: list(map(lambda y: int(y), x)), self.states))
 
-        # Setup publishers and subscribers
+        # Initialize the object and the tag we need
+        self.object = NULL
+        self.tag = NULL
+        # load DICT_4X4_50
+        self.aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_50)
 
-        # publish the action 
-        self.action_pub = rospy.Publisher("/q_learning/robot_action", RobotMoveObjectToTag, queue_size=10)
+        # Setup publishers and subscribers
+ 
+        # subscribe to the robot's RGB camera data stream
+        self.image_sub = rospy.Subscriber('camera/rgb/image_raw',
+                Image, self.image_callback)
+
+        # Declare our node as a subscriber to the scan topic and
+        #   set self.process_scan as the function to be used for callback.
+        rospy.Subscriber("/scan", LaserScan, self.process_scan)
+
+        # Publish robot movements
+        self.robot_movement_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+
+        self.seen_first_image = False
+
+        self.initalized = True
 
 
     def choose_next_action(self):
@@ -73,9 +92,43 @@ class QAction(object):
         new_state = self.action_matrix[self.state].tolist().index(next_action)
         self.state = new_state
         # Publish the action 
-        my_action = RobotMoveObjectToTag(robot_object = self.actions[next_action]["object"], tag_id = self.actions[next_action]["tag"])
-        self.action_pub.publish(my_action)
+        # my_action = RobotMoveObjectToTag(robot_object = self.actions[next_action]["object"], tag_id = self.actions[next_action]["tag"])
+        # self.action_pub.publish(my_action)
+        self.object = self.actions[next_action]["object"]
+        self.tag = int(self.actions[next_action]["tag"])
         return 
+    
+    def image_callback(self, msg):
+
+        if (not self.initalized):
+            return
+        
+        if (not self.seen_first_image):
+
+            self.seen_first_image = True
+
+            # take the ROS message with the image and turn it into a format cv2 can use
+            img = self.bridge.imgmsg_to_cv2(data, desired_encoding='bgr8')
+
+            # turn the image into a grayscale
+            grayscale_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+            # search for tags from DICT_4X4_50 in a GRAYSCALE image
+            corners, ids, rejected_points = cv2.aruco.detectMarkers(grayscale_image, aruco_dict)
+
+            index_of_id = ids.tolist().index([self.tag])
+            sum_x = 0
+            sum_y = 0
+            for i in range(4):
+                sum_x += corners[index_of_id][0][i][0]
+                sum_y += corners[index_of_id][0][i][1]
+            cx = sum_x / 4
+            cy = sum_y / 4
+
+            my_twist = Twist(linear=Vector3(0.05, 0, 0), angular=Vector3(0, 0, 0.001*(-cx + 160)))
+            self.robot_movement_pub.publish(my_twist)
+
+            #move until right infront of the tag and then stop - use meTHOD FROM LAB B
     
     def run(self):
         # Give time for all publishers to initialize
@@ -91,6 +144,8 @@ class ExecuteAction(object):
         # Initialize the object and the tag we need
         self.object = NULL
         self.tag = NULL
+        # load DICT_4X4_50
+        self.aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_50)
 
         # Setup publishers and subscribers
 
@@ -104,64 +159,45 @@ class ExecuteAction(object):
         # Publish robot movements
         self.robot_movement_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
+        self.seen_first_image = False
+
+        self.initalized = True
+
     def action_received(self, data):
         self.object = data.robot_object
-        self.tag = data.tag_id
+        self.tag = int(data.tag_id)
         return
 
     def image_callback(self, msg):
 
-        # converts the incoming ROS message to OpenCV format and HSV (hue, saturation, value)
-        image = self.bridge.imgmsg_to_cv2(msg,desired_encoding='bgr8')
-        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-
-        # TODO: define the upper and lower bounds for what should be considered 'yellow'
-        # Note: see class page for hints on this
-
-        lower_yellow = numpy.array([14.9, 0, 50]) #TODO
-        upper_yellow = numpy.array([14.9, 255, 255]) #TODO
-
-        # orange_min = numpy.uint8([[[0,102,204 ]]])
-        # orange_max = numpy.uint8([[[153,204,255 ]]])
-        # hsv_orange_min = cv2.cvtColor(orange_min,cv2.COLOR_BGR2HSV)
-        # hsv_orange_max = cv2.cvtColor(orange_max,cv2.COLOR_BGR2HSV)
+        if (not self.initalized):
+            return
         
-        # this erases all pixels that aren't yellow
-        mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
+        if (not self.seen_first_image):
 
-        # this limits our search scope to only view a slice of the image near the ground
-        h, w, d = image.shape
-        search_top = int(3*h/4)
-        search_bot = int(3*h/4 + 20)
-        mask[0:search_top, 0:w] = 0
-        mask[search_bot:h, 0:w] = 0
+            self.seen_first_image = True
 
-        # using moments() function, the center of the yellow pixels is determined
-        M = cv2.moments(mask)
-        # if there are any yellow pixels found
-        if M['m00'] > 0:
-                # center of the yellow pixels in the image
-                cx = int(M['m10']/M['m00'])
-                cy = int(M['m01']/M['m00'])
+            # take the ROS message with the image and turn it into a format cv2 can use
+            img = self.bridge.imgmsg_to_cv2(data, desired_encoding='bgr8')
 
-                print(cx, cy)
-                # a red circle is visualized in the debugging window to indicate
-                # the center point of the yellow pixels
-                # hint: if you don't see a red circle, check your bounds for what is considered 'yellow'
-                cv2.circle(image, (cx, cy), 20, (0,0,255), -1)
+            # turn the image into a grayscale
+            grayscale_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-                my_twist = Twist(linear=Vector3(0.05, 0, 0), angular=Vector3(0, 0, 0.001*(-cx + 160)))
-                self.robot_movement_pub.publish(my_twist)
-                # TODO: based on the location of the line (approximated
-                #       by the center of the yellow pixels), implement
-                #       proportional control to have the robot follow
-                #       the yellow line
+            # search for tags from DICT_4X4_50 in a GRAYSCALE image
+            corners, ids, rejected_points = cv2.aruco.detectMarkers(grayscale_image, aruco_dict)
 
-        # shows the debugging window
-        # hint: you might want to disable this once you're able to get a red circle in the debugging window
-        cv2.imshow("window", image) 
-        cv2.waitKey(3)
-    
+            index_of_id = ids.tolist().index([self.tag])
+            sum_x = 0
+            sum_y = 0
+            for i in range(4):
+                sum_x += corners[index_of_id][0][i][0]
+                sum_y += corners[index_of_id][0][i][1]
+            cx = sum_x / 4
+            cy = sum_y / 4
+
+            my_twist = Twist(linear=Vector3(0.05, 0, 0), angular=Vector3(0, 0, 0.001*(-cx + 160)))
+            self.robot_movement_pub.publish(my_twist)
+     
     def run(self):
         # Give time for all publishers to initialize
         rospy.spin()
