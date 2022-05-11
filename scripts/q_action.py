@@ -68,6 +68,7 @@ class QAction(object):
         # load DICT_4X4_50
         self.aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_50)
         self.taking_to_tag = False
+        self.found_tag = False
 
         # Robot arm movement
         # set up ROS / OpenCV bridge
@@ -142,9 +143,9 @@ class QAction(object):
             # search for tags from DICT_4X4_50 in a GRAYSCALE image
             corners, ids, rejected_points = cv2.aruco.detectMarkers(grayscale_image, self.aruco_dict)
             print("ids is", ids)
-            if ids == None:
-                my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0.5))
-                self.robot_movement_pub.publish(my_twist)
+            my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0.2))
+            self.robot_movement_pub.publish(my_twist)
+                
             #print("corners are", corners)
             index_of_id = ids.tolist().index([self.tag])
             sum_x = 0
@@ -154,13 +155,15 @@ class QAction(object):
                 sum_y += corners[index_of_id][0][i][1]
             cx = sum_x / 4
             cy = sum_y / 4
+            print("pos is", self.robotpos)
 
-            if self.robotpos == 0: # will stop when close to the tag
+            if self.robotpos == 1: # will stop when close to the tag
+                
                 my_twist = Twist(linear=Vector3(0.05, 0, 0), angular=Vector3(0, 0, 0.001*(-cx + 160)))
                 
                 self.robot_movement_pub.publish(my_twist)
+                    
                 
-            
             cv2.imshow("window", img) 
             cv2.waitKey(3)
         else:
@@ -207,11 +210,11 @@ class QAction(object):
                 l = data.ranges[i]
                 if ((r <= 0.22 and r > 0.1) or (l <= 0.22 and l >0.1)) and self.robotpos==0:
                     print("ready")
-                    self.robotpos = 1
+                    self.robotpos = 0
                     my_twist = Twist(linear=Vector3(0.0, 0, 0), angular=Vector3(0, 0, 0))
                     self.robot_movement_pub.publish(my_twist)
                     # put the dumbell down and turn 180 degrees or turn until we see the color we want
-                    self.robotpos = 0
+                    self.robotpos = 1
                     self.taking_to_tag = False
         else:
             for i in range (20):
@@ -235,7 +238,9 @@ class QAction(object):
                     arm_joint_goal = [0.0, math.radians(-75), 0.0, 0.0]
                     self.move_group_arm.go(arm_joint_goal)
                     self.move_group_arm.stop()
+                    rospy.sleep(5)
 
+                    
                     self.taking_to_tag = True
                     # turn around 180 degrees or until we see the tag
 
