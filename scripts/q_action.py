@@ -113,7 +113,7 @@ class QAction(object):
 
 
     def choose_next_action(self):
-        next_action = self.q[self.state].tolist().index(max(self.q[self.state]))
+        next_action = self.q[self.state].tolist().index(int(max(self.q[self.state])))
         new_state = self.action_matrix[self.state].tolist().index(next_action)
         self.state = new_state
         # Publish the action 
@@ -126,12 +126,11 @@ class QAction(object):
     
     def image_callback(self, msg):
 
-
-        
-
         if (self.taking_to_tag):
 
             self.seen_first_image = True
+            my_twist = Twist(linear=Vector3(0.0, 0, 0))
+            self.robot_movement_pub.publish(my_twist)
 
             # take the ROS message with the image and turn it into a format cv2 can use
             img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
@@ -155,7 +154,7 @@ class QAction(object):
                 my_twist = Twist(linear=Vector3(0.05, 0, 0), angular=Vector3(0, 0, 0.001*(-cx + 160)))
                 self.robot_movement_pub.publish(my_twist)
             
-            cv2.imshow("window", image) 
+            cv2.imshow("window", img) 
             cv2.waitKey(3)
         else:
             my_twist = Twist(linear=Vector3(0.0, 0, 0))
@@ -239,6 +238,7 @@ class QAction(object):
         rospy.sleep(3)
         # self.choose_next_action()
         self.choose_next_action()
+        rospy.sleep(3)
         rospy.spin()
 
 
