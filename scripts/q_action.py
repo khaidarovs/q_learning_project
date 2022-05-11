@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
-from asyncio.windows_events import NULL
 import rospy, cv2, cv_bridge
 import numpy as np
 import os
-import pandas as pd
+
 
 from gazebo_msgs.msg import ModelState, ModelStates
 from geometry_msgs.msg import Point, Pose, Quaternion, Twist, Vector3
@@ -15,8 +14,7 @@ from sensor_msgs.msg import LaserScan
 
 import moveit_commander
 import math
-# import the custom message
-from class_meeting_08_kinematics.msg import Traffic
+
 
 # Path of directory on where this file is located
 path_prefix = os.path.dirname(__file__) + "/action_states/"
@@ -64,11 +62,11 @@ class QAction(object):
         self.states = list(map(lambda x: list(map(lambda y: int(y), x)), self.states))
 
         # Initialize the object and the tag we need
-        self.object = NULL
-        self.tag = NULL
+        self.object = -1
+        self.tag = 1
         # load DICT_4X4_50
         self.aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_50)
-        self.taking_to_tag = False
+        self.taking_to_tag = True
 
         # Robot arm movement
         # set up ROS / OpenCV bridge
@@ -86,14 +84,12 @@ class QAction(object):
         self.move_group_arm = moveit_commander.MoveGroupCommander("arm")
         self.move_group_gripper = moveit_commander.MoveGroupCommander("gripper")
                 
-        # wait=True ensures that the movement is synchronous
         arm_joint_goal = [0.0, 0.0, 0.0, 0.0]
         self.move_group_arm.go(arm_joint_goal)
-        # Calling ``stop()`` ensures that there is no residual movement
         self.move_group_arm.stop()
         rospy.sleep(2)
 
-        gripper_joint_goal = [0.0, 0.0]
+        gripper_joint_goal = [0.01, -0.01]
         self.move_group_gripper.go(gripper_joint_goal)
         self.move_group_gripper.stop()
         rospy.sleep(2)
@@ -125,12 +121,12 @@ class QAction(object):
         # self.action_pub.publish(my_action)
         self.object = self.actions[next_action]["object"]
         self.tag = int(self.actions[next_action]["tag"])
+        print("tag is initialized and it is", self.tag)
         return 
     
     def image_callback(self, msg):
 
-        if (not self.initalized):
-            return
+
         
 
         if (self.taking_to_tag):
@@ -138,13 +134,13 @@ class QAction(object):
             self.seen_first_image = True
 
             # take the ROS message with the image and turn it into a format cv2 can use
-            img = self.bridge.imgmsg_to_cv2(data, desired_encoding='bgr8')
+            img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
 
             # turn the image into a grayscale
             grayscale_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
             # search for tags from DICT_4X4_50 in a GRAYSCALE image
-            corners, ids, rejected_points = cv2.aruco.detectMarkers(grayscale_image, aruco_dict)
+            corners, ids, rejected_points = cv2.aruco.detectMarkers(grayscale_image, self.aruco_dict)
 
             index_of_id = ids.tolist().index([self.tag])
             sum_x = 0
@@ -168,8 +164,8 @@ class QAction(object):
             image = self.bridge.imgmsg_to_cv2(msg,desired_encoding='bgr8')
             hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-            lower_blue = numpy.array([90, 63, 60]) #TODO
-            upper_blue = numpy.array([90, 255, 255]) #TODO
+            lower_blue = np.array([90, 63, 60]) #TODO
+            upper_blue = np.array([90, 255, 255]) #TODO
 
             # this erases all pixels that aren't blue
             mask = cv2.inRange(hsv, lower_blue, upper_blue)
@@ -188,17 +184,18 @@ class QAction(object):
 
                 print(cx, cy)
                 cv2.circle(image, (cx, cy), 20, (0,0,255), -1)
-                my_twist = Twist(linear=Vector3(0.1, 0, 0), angular=Vector3(0, 0, 0.001*(-cx + 160)))                                
+                my_twist = Twist(linear=Vector3(0.05, 0, 0), angular=Vector3(0, 0, 0.001*(-cx + 160)))                                
                 self.robot_movement_pub.publish(my_twist)
                         
             # shows the debugging window
             # hint: you might want to disable this once you're able to get a red circle in the debugging window
+            
             cv2.imshow("window", image) 
             cv2.waitKey(3)
 
 
     def process_scan(self, data):
-        if (taking_to_tag):
+        if (self.taking_to_tag):
             for i in range (20):
                 r = data.ranges[-i]
                 l = data.ranges[i]
@@ -209,7 +206,7 @@ class QAction(object):
                     self.robot_movement_pub.publish(my_twist)
                     # put the dumbell down and turn 180 degrees or turn until we see the color we want
                     self.robotpos = 0
-                    taking_to_tag = False
+                    self.taking_to_tag = False
         else:
             for i in range (20):
                 r = data.ranges[-i]
@@ -241,6 +238,7 @@ class QAction(object):
         # Give time for all publishers to initialize
         rospy.sleep(3)
         # self.choose_next_action()
+        self.choose_next_action()
         rospy.spin()
 
 
@@ -312,5 +310,5 @@ class QAction(object):
 
 if __name__ == "__main__":
     node = QAction()
-    node1.run()
-    node2.run()
+    node.run()
+    #node2.run()
