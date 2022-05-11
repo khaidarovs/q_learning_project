@@ -37,7 +37,8 @@ class QAction(object):
         
         #Initialize our Q-matrix as a series of zeros over 64 rows for each state
         #and 9 columns for each possible action
-        self.q = np.genfromtxt(path_prefix_q + "q_matrix.csv")
+        self.q = np.genfromtxt(path_prefix_q + "q_matrix.csv", delimiter=',')
+        
         self.state = 0
 
         # Fetch actions. These are the only 9 possible actions the system can take.
@@ -66,7 +67,7 @@ class QAction(object):
         self.tag = 1
         # load DICT_4X4_50
         self.aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_50)
-        self.taking_to_tag = True
+        self.taking_to_tag = False
 
         # Robot arm movement
         # set up ROS / OpenCV bridge
@@ -87,7 +88,7 @@ class QAction(object):
         arm_joint_goal = [0.0, 0.0, 0.0, 0.0]
         self.move_group_arm.go(arm_joint_goal)
         self.move_group_arm.stop()
-        rospy.sleep(2)
+        rospy.sleep(5)
 
         gripper_joint_goal = [0.01, -0.01]
         self.move_group_gripper.go(gripper_joint_goal)
@@ -113,7 +114,7 @@ class QAction(object):
 
 
     def choose_next_action(self):
-        next_action = self.q[self.state].tolist().index(int(max(self.q[self.state])))
+        next_action = self.q[self.state].tolist().index(max(self.q[self.state]))
         new_state = self.action_matrix[self.state].tolist().index(next_action)
         self.state = new_state
         # Publish the action 
@@ -140,7 +141,11 @@ class QAction(object):
 
             # search for tags from DICT_4X4_50 in a GRAYSCALE image
             corners, ids, rejected_points = cv2.aruco.detectMarkers(grayscale_image, self.aruco_dict)
-
+            print("ids is", ids)
+            if ids == None:
+                my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0.5))
+                self.robot_movement_pub.publish(my_twist)
+            #print("corners are", corners)
             index_of_id = ids.tolist().index([self.tag])
             sum_x = 0
             sum_y = 0
@@ -152,7 +157,9 @@ class QAction(object):
 
             if self.robotpos == 0: # will stop when close to the tag
                 my_twist = Twist(linear=Vector3(0.05, 0, 0), angular=Vector3(0, 0, 0.001*(-cx + 160)))
+                
                 self.robot_movement_pub.publish(my_twist)
+                
             
             cv2.imshow("window", img) 
             cv2.waitKey(3)
@@ -219,7 +226,7 @@ class QAction(object):
                     arm_joint_goal = [math.radians(min(r, l)), math.radians(20.0), 0.0, 0.0]
                     self.move_group_arm.go(arm_joint_goal)
                     self.move_group_arm.stop()
-                    rospy.sleep(2)
+                    rospy.sleep(5)
                                 
                     gripper_joint_goal = [-0.01, 0.01]
                     self.move_group_gripper.go(gripper_joint_goal, wait=True)
@@ -229,7 +236,7 @@ class QAction(object):
                     self.move_group_arm.go(arm_joint_goal)
                     self.move_group_arm.stop()
 
-                    taking_to_tag = True
+                    self.taking_to_tag = True
                     # turn around 180 degrees or until we see the tag
 
     
