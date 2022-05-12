@@ -19,8 +19,9 @@ import math
 path_prefix = os.path.dirname(__file__) + "/action_states/"
 path_prefix_q = os.path.dirname(__file__) + "/"
 
-def image_process(image, hsv, upper, lower):
-
+def find_mask(image, hsv, upper, lower):
+    mask = cv2.inRange(hsv, lower, upper)
+    return mask
 
 class QAction(object):
     def __init__(self):
@@ -34,6 +35,7 @@ class QAction(object):
         self.q = np.genfromtxt(path_prefix_q + "q_matrix.csv", delimiter=',')
         #Initialize state to 0
         self.state = 0
+        self.iteration = 1
 
         # Fetch actions.
         colors = ["pink", "green", "blue"]
@@ -145,7 +147,7 @@ class QAction(object):
             cx = sum_x / 4
             cy = sum_y / 4
 
-            if self.robotpos == 0: # Robot will move until it's close enough to the tag
+            if self.robotpos == 1: # Robot will move until it's close enough to the tag
                 my_twist = Twist(linear=Vector3(0.05, 0, 0), angular=Vector3(0, 0, 0.001*(-cx + 160)))
                 self.robot_movement_pub.publish(my_twist)
             else:
@@ -173,7 +175,13 @@ class QAction(object):
             upper_pink = np.array([90, 255, 255])
 
             # this erases all pixels that aren't blue
-            mask = cv2.inRange(hsv, lower_blue, upper_blue)
+            # mask = cv2.inRange(hsv, lower_blue, upper_blue)
+            if self.object == "pink":
+                mask = find_mask(hsv, lower_pink, upper_pink)
+            elif self.object == "green":
+                mask = find_mask(hsv, lower_green, upper_green)
+            elif self.object == "blue":
+                mask = cv2.inRange(hsv, lower_blue, upper_blue)
 
             # this limits our search scope to only view a slice of the image near the ground
             h, w, d = image.shape
@@ -181,7 +189,10 @@ class QAction(object):
             # using moments() function, the center of the pixels is determined
             M = cv2.moments(mask)
             # print(M)
-            # if there are any pixels found
+
+            # TODO
+            # if there are any pixels found keep turning until we do find pixels of that color
+
             if M['m00'] > 0 and self.robotpos == 0:
                 # center of the pixels in the image
                 cx = int(M['m10']/M['m00'])
@@ -205,7 +216,7 @@ class QAction(object):
                 l = data.ranges[i]
                 if ((r <= 0.3 and r > 0.1) or (l <= 0.3 and l > 0.1)) and self.robotpos == 0: 
                     print("ready to put down")
-                    self.robotpos = 1
+                    self.robotpos = 0
                     my_twist = Twist(linear=Vector3(0.0, 0, 0), angular=Vector3(0, 0, 0))
                     self.robot_movement_pub.publish(my_twist) # stop
                     # Put the dumbell down
@@ -230,16 +241,17 @@ class QAction(object):
                     self.robot_movement_pub.publish(my_twist)
                     
                     # Reset parameters and choose next action
-                    self.robotpos = 0
+                    # self.robotpos = 0
                     self.taking_to_tag = False
                     self.choose_next_action()
+                    self.iteration += 1
                     rospy.sleep(2)
-        else:
+        else: # When we're looking for dumbells 
             for i in range (20):
                 r = data.ranges[-i]
                 l = data.ranges[i]
                 if ((r <= 0.22 and r > 0.1) or (l <= 0.22 and l >0.1)) and self.robotpos==0:
-                    print("ready")
+                    print("ready to pick up")
                     self.robotpos = 1
                     my_twist = Twist(linear=Vector3(0.0, 0, 0), angular=Vector3(0, 0, 0))
                     self.robot_movement_pub.publish(my_twist)
@@ -258,87 +270,21 @@ class QAction(object):
                     self.move_group_arm.stop()
                     rospy.sleep(5)
 
-                    
                     self.taking_to_tag = True
-                    # turn around 180 degrees or until we see the tag
+                    # Turning and seeing the tag is incorporated in the image callback
 
     
     def run(self):
         # Give time for all publishers to initialize
         rospy.sleep(3)
-        # self.choose_next_action()
+        # Choose the first action
         self.choose_next_action()
+        # Give time to initialize
         rospy.sleep(3)
-        rospy.spin()
-
-
-# class ExecuteAction(object):
-#     def __init__(self):
-#         # Initialize this node
-#         rospy.init_node("execute_action")
-
-#         # Initialize the object and the tag we need
-#         self.object = NULL
-#         self.tag = NULL
-#         # load DICT_4X4_50
-#         self.aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_50)
-
-#         # Setup publishers and subscribers
-
-#         # subscribe to the action topic
-#         rospy.Subscriber("/q_learning/robot_action", RobotMoveObjectToTag, self.action_received)
-
-#         # subscribe to the robot's RGB camera data stream
-#         self.image_sub = rospy.Subscriber('camera/rgb/image_raw',
-#                 Image, self.image_callback)
-
-#         # Publish robot movements
-#         self.robot_movement_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
-
-#         self.seen_first_image = False
-
-#         self.initalized = True
-
-#     def action_received(self, data):
-#         self.object = data.robot_object
-#         self.tag = int(data.tag_id)
-#         return
-
-#     def image_callback(self, msg):
-
-#         if (not self.initalized):
-#             return
-        
-#         if (not self.seen_first_image):
-
-#             self.seen_first_image = True
-
-#             # take the ROS message with the image and turn it into a format cv2 can use
-#             img = self.bridge.imgmsg_to_cv2(data, desired_encoding='bgr8')
-
-#             # turn the image into a grayscale
-#             grayscale_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-#             # search for tags from DICT_4X4_50 in a GRAYSCALE image
-#             corners, ids, rejected_points = cv2.aruco.detectMarkers(grayscale_image, aruco_dict)
-
-#             index_of_id = ids.tolist().index([self.tag])
-#             sum_x = 0
-#             sum_y = 0
-#             for i in range(4):
-#                 sum_x += corners[index_of_id][0][i][0]
-#                 sum_y += corners[index_of_id][0][i][1]
-#             cx = sum_x / 4
-#             cy = sum_y / 4
-
-#             my_twist = Twist(linear=Vector3(0.05, 0, 0), angular=Vector3(0, 0, 0.001*(-cx + 160)))
-#             self.robot_movement_pub.publish(my_twist)
-     
-#     def run(self):
-#         # Give time for all publishers to initialize
-#         rospy.spin()
+        # Keep the program running for 3 iterations
+        while self.iteration < 4:
+            rospy.spin()
 
 if __name__ == "__main__":
     node = QAction()
     node.run()
-    #node2.run()
