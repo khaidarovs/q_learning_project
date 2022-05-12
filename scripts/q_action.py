@@ -19,7 +19,7 @@ import math
 path_prefix = os.path.dirname(__file__) + "/action_states/"
 path_prefix_q = os.path.dirname(__file__) + "/"
 
-def find_mask(image, hsv, upper, lower):
+def find_mask(hsv, upper, lower):
     mask = cv2.inRange(hsv, lower, upper)
     return mask
 
@@ -96,7 +96,7 @@ class QAction(object):
         actions = [] # in the case when there are multiple actions with the same reward
         max_reward = max(self.q[self.state])
         for action, reward in enumerate(self.q[self.state]):
-            if reward = max_reward:
+            if reward == max_reward:
                 actions.append(action)
         next_action = np.random.choice(actions)
         # next_action = self.q[self.state].tolist().index(max(self.q[self.state]))
@@ -122,21 +122,25 @@ class QAction(object):
             # search for tags from DICT_4X4_50 in a GRAYSCALE image
             corners, ids, rejected_points = cv2.aruco.detectMarkers(grayscale_image, self.aruco_dict)
             print("ids is", ids)
-            while ids is None:
+           # if ids is None:
+                #my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0.1))
+                #self.robot_movement_pub.publish(my_twist)
+                # img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+                # grayscale_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                # corners, ids, rejected_points = cv2.aruco.detectMarkers(grayscale_image, self.aruco_dict)
+                # print("ids is", ids)
+                #return
+            #if [self.tag] not in ids:
+            if self.robotpos == 1:
                 my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0.2))
                 self.robot_movement_pub.publish(my_twist)
-                img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-                grayscale_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                corners, ids, rejected_points = cv2.aruco.detectMarkers(grayscale_image, self.aruco_dict)
-            while [self.tag] not in ids:
-                my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0.2))
-                self.robot_movement_pub.publish(my_twist)
-                img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-                grayscale_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                corners, ids, rejected_points = cv2.aruco.detectMarkers(grayscale_image, self.aruco_dict)
+                # img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+                # grayscale_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                # corners, ids, rejected_points = cv2.aruco.detectMarkers(grayscale_image, self.aruco_dict)
+                #return
 
-            my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0))
-            self.robot_movement_pub.publish(my_twist)
+            #my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0))
+            #self.robot_movement_pub.publish(my_twist)
                 
             index_of_id = ids.tolist().index([self.tag])
             sum_x = 0
@@ -148,16 +152,15 @@ class QAction(object):
             cy = sum_y / 4
 
             if self.robotpos == 1: # Robot will move until it's close enough to the tag
+                print("moving")
                 my_twist = Twist(linear=Vector3(0.05, 0, 0), angular=Vector3(0, 0, 0.001*(-cx + 160)))
                 self.robot_movement_pub.publish(my_twist)
-            else:
-                my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0))
-                self.robot_movement_pub.publish(my_twist)
-                    
+
                 
             cv2.imshow("window", img) 
             cv2.waitKey(3)
         else:
+            #print(1)
             my_twist = Twist(linear=Vector3(0.0, 0, 0)) # make the robot stop
             self.robot_movement_pub.publish(my_twist)
             
@@ -175,13 +178,13 @@ class QAction(object):
             upper_pink = np.array([90, 255, 255])
 
             # this erases all pixels that aren't blue
-            # mask = cv2.inRange(hsv, lower_blue, upper_blue)
-            if self.object == "pink":
-                mask = find_mask(hsv, lower_pink, upper_pink)
-            elif self.object == "green":
-                mask = find_mask(hsv, lower_green, upper_green)
-            elif self.object == "blue":
-                mask = cv2.inRange(hsv, lower_blue, upper_blue)
+            mask = cv2.inRange(hsv, lower_blue, upper_blue)
+            #if self.object == "pink":
+            #    mask = find_mask(hsv, lower_pink, upper_pink)
+           # elif self.object == "green":
+           #     mask = find_mask(hsv, lower_green, upper_green)
+           # elif self.object == "blue":
+           #     mask = cv2.inRange(hsv, lower_blue, upper_blue)
 
             # this limits our search scope to only view a slice of the image near the ground
             h, w, d = image.shape
@@ -214,14 +217,15 @@ class QAction(object):
             for i in range (20):
                 r = data.ranges[-i]
                 l = data.ranges[i]
-                if ((r <= 0.3 and r > 0.1) or (l <= 0.3 and l > 0.1)) and self.robotpos == 0: 
+                print("r is ", r)
+                print("l is ", l)
+                if ((r <= 0.4 and r > 0.3) or (l <= 0.4 and l > 0.3)) and self.robotpos == 1: 
                     print("ready to put down")
                     self.robotpos = 0
                     my_twist = Twist(linear=Vector3(0.0, 0, 0), angular=Vector3(0, 0, 0))
                     self.robot_movement_pub.publish(my_twist) # stop
                     # Put the dumbell down
-                    self.move_group_arm = moveit_commander.MoveGroupCommander("arm")
-                    self.move_group_gripper = moveit_commander.MoveGroupCommander("gripper")
+                    self.robotpos = 0
                 
                     arm_joint_goal = [0.0, 0.0, 0.0, 0.0]
                     self.move_group_arm.go(arm_joint_goal)
@@ -231,12 +235,12 @@ class QAction(object):
                     gripper_joint_goal = [0.01, -0.01]
                     self.move_group_gripper.go(gripper_joint_goal)
                     self.move_group_gripper.stop()
-                    rospy.sleep(2)
+                    rospy.sleep(5)
 
                     #drive back and start turning
                     my_twist = Twist(linear=Vector3(-0.1, 0, 0), angular=Vector3(0, 0, 0))
                     self.robot_movement_pub.publish(my_twist)
-                    rospy.sleep(2)
+                    rospy.sleep(10)
                     my_twist = Twist(linear=Vector3(0.0, 0, 0), angular=Vector3(0, 0, 0))
                     self.robot_movement_pub.publish(my_twist)
                     
@@ -268,7 +272,7 @@ class QAction(object):
                     arm_joint_goal = [0.0, math.radians(-75), 0.0, 0.0]
                     self.move_group_arm.go(arm_joint_goal)
                     self.move_group_arm.stop()
-                    rospy.sleep(5)
+                    rospy.sleep(10)
 
                     self.taking_to_tag = True
                     # Turning and seeing the tag is incorporated in the image callback
