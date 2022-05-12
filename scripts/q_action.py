@@ -118,8 +118,8 @@ class QAction(object):
 
         if (self.taking_to_tag): # When we have the dumbell and travelling to the tag
             print("In tag branch and pos is", self.robotpos)
-            my_twist = Twist(linear=Vector3(0.0, 0, 0)) # make robot stop at the beginning
-            self.robot_movement_pub.publish(my_twist)
+            #my_twist = Twist(linear=Vector3(0.0, 0, 0)) # make robot stop at the beginning
+            #self.robot_movement_pub.publish(my_twist)
 
             # take the ROS message with the image and turn it into a format cv2 can use
             img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
@@ -169,11 +169,12 @@ class QAction(object):
             # cv2.waitKey(3)
         else:
             print("In the object branch")
+            print("pos is", self.robotpos)
             # if self.iteration > 1:
             #    my_twist = Twist(linear=Vector3(-1, 0, 0)) # make the robot stop
             #    self.robot_movement_pub.publish(my_twist)
-            my_twist = Twist(linear=Vector3(0.0, 0, 0)) # make the robot stop
-            self.robot_movement_pub.publish(my_twist)
+            #my_twist = Twist(linear=Vector3(0.0, 0, 0)) # make the robot stop
+            #self.robot_movement_pub.publish(my_twist)
             
             # converts the incoming ROS message to OpenCV format and HSV (hue, saturation, value)
             image = self.bridge.imgmsg_to_cv2(msg,desired_encoding='bgr8')
@@ -221,6 +222,11 @@ class QAction(object):
                 cv2.circle(image, (cx, cy), 20, (0,0,255), -1)
                 my_twist = Twist(linear=Vector3(0.05, 0, 0), angular=Vector3(0, 0, 0.001*(-cx + 160)))                                
                 self.robot_movement_pub.publish(my_twist)
+
+            elif self.robotpos == 0:
+                my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0.05))                                
+                self.robot_movement_pub.publish(my_twist)
+
                         
             # shows the debugging window
             
@@ -242,7 +248,7 @@ class QAction(object):
                 # print("l is ", l)
                 if ((r <= 0.4 and r > 0.3) or (l <= 0.4 and l > 0.3)) and self.robotpos == 1: 
                     print("ready to put down")
-                    self.robotpos = 0
+                    self.robotpos = 2
                     my_twist = Twist(linear=Vector3(0.0, 0, 0), angular=Vector3(0, 0, 0))
                     self.robot_movement_pub.publish(my_twist) # stop
                     # Put the dumbell down
@@ -251,26 +257,31 @@ class QAction(object):
                     arm_joint_goal = [0.0, 0.0, 0.0, 0.0]
                     self.move_group_arm.go(arm_joint_goal)
                     self.move_group_arm.stop()
-                    rospy.sleep(5)
+                    rospy.sleep(7)
 
                     gripper_joint_goal = [0.01, -0.01]
                     self.move_group_gripper.go(gripper_joint_goal)
                     self.move_group_gripper.stop()
                     rospy.sleep(5)
 
+                    arm_joint_goal = [0.0, math.radians(-20), 0.0, 0.0]
+                    self.move_group_arm.go(arm_joint_goal)
+                    self.move_group_arm.stop()
+                    rospy.sleep(10)
+
                     #drive back and start turning
-                    my_twist = Twist(linear=Vector3(-10, 0, 0), angular=Vector3(0, 0, 0))
+                    my_twist = Twist(linear=Vector3(-0.2, 0, 0), angular=Vector3(0, 0, 0))
                     self.robot_movement_pub.publish(my_twist)
                     print("going back")
-                    rospy.sleep(10)
+                    rospy.sleep(2)
                     # my_twist = Twist(linear=Vector3(0.1, 0, 0), angular=Vector3(0, 0, 0))
                     # self.robot_movement_pub.publish(my_twist)
                     # rospy.sleep(3)
                     my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0))
                     self.robot_movement_pub.publish(my_twist)
-                    
+                    rospy.sleep(5)
                     # Reset parameters and choose next action
-                    # self.robotpos = 0
+                    self.robotpos = 0
                     self.initialized = False
                     self.choose_next_action()
                     self.taking_to_tag = False
@@ -281,7 +292,8 @@ class QAction(object):
             for i in range (20):
                 r = data.ranges[-i]
                 l = data.ranges[i]
-                if ((r <= 0.22 and r > 0.1) or (l <= 0.22 and l >0.1)) and self.robotpos==0:
+                print("r and l are", r , l)
+                if ((r <= 0.24 and r > 0.22) or (l <= 0.24 and l >0.22)) and self.robotpos==0:
                     print("ready to pick up")
                     self.robotpos = 1
                     my_twist = Twist(linear=Vector3(0.0, 0, 0), angular=Vector3(0, 0, 0))
@@ -299,7 +311,7 @@ class QAction(object):
                     arm_joint_goal = [0.0, math.radians(-75), 0.0, 0.0]
                     self.move_group_arm.go(arm_joint_goal)
                     self.move_group_arm.stop()
-                    rospy.sleep(3)
+                    rospy.sleep(7)
 
                     self.taking_to_tag = True
                     print("Switched to taking to tag")
