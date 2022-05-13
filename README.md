@@ -98,3 +98,19 @@ Our state transitions were incredibly bulky, and so if we had more time, I think
 ### Takeaways
 - Transitionning between states, although incredibly difficult, is something that we both now have a much better understanding of now. In future projects, we should be able to more efficiently use flags to do these transitions, allowing our robot to do a better job of properly multitasking.
 - The other important thing we learned was how to properly use message files to publish and receive information between different nodes. This was useful when moving from our Q-matrix to choosing actions, and which should prove to be a good foundation for our final project, where we will have the robot play tic-tac-toe. 
+
+
+## Videos
+
+
+![Alt Text](https://github.com/m-lederman/warmup_project/blob/main/q1.gif)
+
+![Alt Text](https://github.com/m-lederman/warmup_project/blob/main/q2.gif)
+
+![Alt Text](https://github.com/m-lederman/warmup_project/blob/main/q3.gif)
+
+![Alt Text](https://github.com/m-lederman/warmup_project/blob/main/q4.gif)
+
+![Alt Text](https://github.com/m-lederman/warmup_project/blob/main/q5.gif)
+
+![Alt Text](https://github.com/m-lederman/warmup_project/blob/main/q6.gif)
