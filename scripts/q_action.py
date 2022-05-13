@@ -20,10 +20,6 @@ import math
 path_prefix = os.path.dirname(__file__) + "/action_states/"
 path_prefix_q = os.path.dirname(__file__) + "/"
 
-def find_mask(hsv, upper, lower):
-    mask = cv2.inRange(hsv, lower, upper)
-    return mask
-
 class QAction(object):
     def __init__(self):
         # Initialize this node
@@ -36,7 +32,6 @@ class QAction(object):
         self.q = np.genfromtxt(path_prefix_q + "q_matrix.csv", delimiter=',')
         #Initialize state to 0
         self.state = 0
-        self.iteration = 1
 
         # Fetch actions.
         colors = ["pink", "green", "blue"]
@@ -66,7 +61,6 @@ class QAction(object):
         # Global variable to control for distance to object
         self.robotpos = 0
                 
-            
         #set the robot arm and gripper to its default state 
         self.move_group_arm = moveit_commander.MoveGroupCommander("arm")
         self.move_group_gripper = moveit_commander.MoveGroupCommander("gripper")
@@ -97,35 +91,32 @@ class QAction(object):
         #setup global flags to be used when transitioning between movements
         self.initialized = False
         self.color = False
-        self.iterations_object = 0
 
 
     def choose_next_action(self):
+        # This function fetches the converged q matrix and chooses 
+        # the action with the maximum reward for each state
+
         actions = [] # in the case when there are multiple actions with the same reward
         max_reward = max(self.q[self.state])
         for action, reward in enumerate(self.q[self.state]):
             if reward == max_reward:
                 actions.append(action)
         next_action = np.random.choice(actions)
-        
         new_state = self.action_matrix[self.state].tolist().index(next_action)
         self.state = new_state
         self.object = self.actions[next_action]["object"]
         self.tag = int(self.actions[next_action]["tag"])
-        
-        print(self.object)
         self.initialized = True
         return 
+
     
     def image_callback(self, msg):
 
         if (not self.initialized):
-           
             return
 
         if (self.taking_to_tag): # When we have the dumbell and travelling to the tag
-            
-
             # take the ROS message with the image and turn it into a format cv2 can use
             img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
 
@@ -135,38 +126,29 @@ class QAction(object):
             # search for tags from DICT_4X4_50 in a GRAYSCALE image
             corners, ids, rejected_points = cv2.aruco.detectMarkers(grayscale_image, self.aruco_dict)
             
-          
-            if self.robotpos == 1:
+            if self.robotpos == 1: # Keep rotating until we see the tag we want
                 my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0.1))
                 self.robot_movement_pub.publish(my_twist)
                
-           
-            if (ids is not None) and [self.tag] in ids:
+            if (ids is not None) and [self.tag] in ids: # Only start moving when we see the tag we want
                 index_of_id = ids.tolist().index([self.tag])
                 sum_x = 0
                 sum_y = 0
                 for i in range(4):
                     sum_x += corners[index_of_id][0][i][0]
                     sum_y += corners[index_of_id][0][i][1]
-                cx = sum_x / 4
+                cx = sum_x / 4 # Find the center of the tag
                 cy = sum_y / 4
 
                 if self.robotpos == 1: # Robot will move until it's close enough to the tag
-                
                     my_twist = Twist(linear=Vector3(0.05, 0, 0), angular=Vector3(0, 0, 0.001*(-cx + 160)))
                     self.robot_movement_pub.publish(my_twist)
-
-                
-            
-        else: #looking for object
-            
-            
+        else: # looking for object
             # converts the incoming ROS message to OpenCV format and HSV (hue, saturation, value)
             image = self.bridge.imgmsg_to_cv2(msg,desired_encoding='bgr8')
             hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-          
-
+            # Color ranges for the 3 dumbells
             lower_blue = np.array([90, 60, 60]) 
             upper_blue = np.array([90, 255, 255]) 
 
@@ -176,7 +158,8 @@ class QAction(object):
             lower_pink = np.array([120, 60, 60]) 
             upper_pink = np.array([170, 255, 255])
 
-            # this erases all pixels that aren't the right color (the default as blue doesn't do anything except avoid an error when the color hasn't been initialized yet) 
+            # this erases all pixels that aren't the right color 
+            # (the default as blue doesn't do anything except avoid an error when the color hasn't been initialized yet) 
             mask = cv2.inRange(hsv, lower_blue, upper_blue)
             
             if self.object == "pink":
@@ -186,14 +169,8 @@ class QAction(object):
             else:
                 mask = cv2.inRange(hsv, lower_blue, upper_blue)
 
-            # this limits our search scope to only view a slice of the image near the ground
-            h, w, d = image.shape
-
             # using moments() function, the center of the pixels is determined
             M = cv2.moments(mask)
-            
-           
-            # if there are no pixels found keep turning until we do find pixels of that color
             
             if M['m00'] > 0 and self.robotpos == 0:
                 self.color = True
@@ -205,35 +182,27 @@ class QAction(object):
                 cv2.circle(image, (cx, cy), 20, (0,0,255), -1)
                 my_twist = Twist(linear=Vector3(0.1, 0, 0), angular=Vector3(0, 0, 0.002*(-cx + 160)))                                
                 self.robot_movement_pub.publish(my_twist)
-            
             #turns until it finds the fixels of the right color
             elif self.robotpos == 0:
                 my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0.05))                                
                 self.robot_movement_pub.publish(my_twist)
 
-                        
-          
-
 
     def process_scan(self, data):
 
         if (not self.initialized):
-           
             return
 
-        if (self.taking_to_tag):# Taking to tag case
+        if (self.taking_to_tag): # Taking to tag case
             for i in range (5):
                 r = data.ranges[-i]
-                l = data.ranges[i]
-               
-                if ((r <= 0.4 and r > 0.35) or (l <= 0.4 and l > 0.35)) and self.robotpos == 1:  
-                   
+                l = data.ranges[i]               
+                if ((r <= 0.4 and r > 0.35) or (l <= 0.4 and l > 0.35)) and self.robotpos == 1: # If we are close enough to the AR tag                  
                     self.robotpos = 2
                     my_twist = Twist(linear=Vector3(0.0, 0, 0), angular=Vector3(0, 0, 0))
                     self.robot_movement_pub.publish(my_twist) # stop
+                    
                     # Put the dumbell down
-                
-                
                     arm_joint_goal = [0.0, 0.0, 0.0, 0.0]
                     self.move_group_arm.go(arm_joint_goal)
                     self.move_group_arm.stop()
@@ -258,23 +227,19 @@ class QAction(object):
                     my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0))
                     self.robot_movement_pub.publish(my_twist)
                     rospy.sleep(10)
+
                     # Reset parameters and choose next action
                     self.robotpos = 0
                     self.initialized = False
                     self.choose_next_action()
-                
                     self.taking_to_tag = False
-   
-                    
                     rospy.sleep(2)
         else: # When we're looking for dumbells 
             r = 0
             l = 0
-        
             for i in range (10):
                 r = data.ranges[-i]
-                l = data.ranges[i]
-              
+                l = data.ranges[i]              
                 if ((r <= 0.22 and r > 0.2) or (l <= 0.22 and l >0.2)) and self.robotpos == 0 and self.taking_to_tag == False and self.color == True:
                     #stops
                     self.robotpos = 1
@@ -296,6 +261,7 @@ class QAction(object):
                     self.move_group_arm.stop()
                     rospy.sleep(10)
 
+                    # Moves back and starts turning
                     my_twist = Twist(linear=Vector3(-0.2, 0, 0), angular=Vector3(0, 0, 0.5))
                     self.robot_movement_pub.publish(my_twist)
                    
@@ -304,20 +270,16 @@ class QAction(object):
                     self.robot_movement_pub.publish(my_twist)
                     rospy.sleep(5)
 
-                    #start looking for ar tag
+                    #start looking for AR tag
                     self.taking_to_tag = True
                     self.color = False
               
-
     
     def run(self):
         # Give time for all publishers to initialize
         rospy.sleep(3)
         # Choose the first action
         self.choose_next_action()
-        # Give time to initialize
-     
-        # Keep the program running for 3 iterations
         rospy.spin()
    
 
