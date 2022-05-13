@@ -103,14 +103,14 @@ Our state transitions were incredibly bulky, and so if we had more time, I think
 ## Videos
 
 
-![Alt Text](https://github.com/m-lederman/warmup_project/blob/main/q1.gif)
+![Alt Text](https://github.com/khaidarovs/q_learning_project/blob/main/q1.gif)
 
-![Alt Text](https://github.com/m-lederman/warmup_project/blob/main/q2.gif)
+![Alt Text](https://github.com/khaidarovs/q_learning_project/blob/main/q2.gif)
 
-![Alt Text](https://github.com/m-lederman/warmup_project/blob/main/q3.gif)
+![Alt Text](https://github.com/khaidarovs/q_learning_project/blob/main/q3.gif)
 
-![Alt Text](https://github.com/m-lederman/warmup_project/blob/main/q4.gif)
+![Alt Text](https://github.com/khaidarovs/q_learning_project/blob/main/q4.gif)
 
-![Alt Text](https://github.com/m-lederman/warmup_project/blob/main/q5.gif)
+![Alt Text](https://github.com/khaidarovs/q_learning_project/blob/main/q5.gif)
 
-![Alt Text](https://github.com/m-lederman/warmup_project/blob/main/q6.gif)
+![Alt Text](https://github.com/khaidarovs/q_learning_project/blob/main/q6.gif)
