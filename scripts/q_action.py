@@ -93,6 +93,8 @@ class QAction(object):
 
         self.initialized = False
 
+        self.iterations_object = 0
+
 
     def choose_next_action(self):
         actions = [] # in the case when there are multiple actions with the same reward
@@ -140,7 +142,7 @@ class QAction(object):
                 #return
             #if [self.tag] not in ids:
             if self.robotpos == 1:
-                my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0.2))
+                my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0.1))
                 self.robot_movement_pub.publish(my_twist)
                 # img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
                 # grayscale_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -170,6 +172,7 @@ class QAction(object):
         else:
             print("In the object branch")
             print("pos is", self.robotpos)
+            self.iterations_object += 1
             # if self.iteration > 1:
             #    my_twist = Twist(linear=Vector3(-1, 0, 0)) # make the robot stop
             #    self.robot_movement_pub.publish(my_twist)
@@ -182,14 +185,14 @@ class QAction(object):
 
             print("Color is", self.object)
 
-            lower_blue = np.array([90, 63, 60]) 
+            lower_blue = np.array([90, 60, 60]) 
             upper_blue = np.array([90, 255, 255]) 
 
-            lower_green = np.array([44, 20, 20]) 
-            upper_green = np.array([44, 255, 255])
+            lower_green = np.array([30, 60, 60]) 
+            upper_green = np.array([90, 255, 255])
 
-            lower_pink = np.array([164, 20, 20]) 
-            upper_pink = np.array([164, 255, 255])
+            lower_pink = np.array([120, 60, 60]) 
+            upper_pink = np.array([170, 255, 255])
 
             # this erases all pixels that aren't blue
             mask = cv2.inRange(hsv, lower_blue, upper_blue)
@@ -220,9 +223,8 @@ class QAction(object):
                 # print(cx, cy)
                 print("moving towards object")
                 cv2.circle(image, (cx, cy), 20, (0,0,255), -1)
-                my_twist = Twist(linear=Vector3(0.05, 0, 0), angular=Vector3(0, 0, 0.001*(-cx + 160)))                                
+                my_twist = Twist(linear=Vector3(0.1, 0, 0), angular=Vector3(0, 0, 0.002*(-cx + 160)))                                
                 self.robot_movement_pub.publish(my_twist)
-
             elif self.robotpos == 0:
                 my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0.05))                                
                 self.robot_movement_pub.publish(my_twist)
@@ -241,12 +243,12 @@ class QAction(object):
             return
 
         if (self.taking_to_tag):# Taking to tag case
-            for i in range (20):
+            for i in range (5):
                 r = data.ranges[-i]
                 l = data.ranges[i]
                 # print("r is ", r)
                 # print("l is ", l)
-                if ((r <= 0.4 and r > 0.3) or (l <= 0.4 and l > 0.3)) and self.robotpos == 1: 
+                if ((r <= 0.4 and r > 0.35) or (l <= 0.4 and l > 0.35)) and self.robotpos == 1: 
                     print("ready to put down")
                     self.robotpos = 2
                     my_twist = Twist(linear=Vector3(0.0, 0, 0), angular=Vector3(0, 0, 0))
@@ -279,21 +281,25 @@ class QAction(object):
                     # rospy.sleep(3)
                     my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0))
                     self.robot_movement_pub.publish(my_twist)
-                    rospy.sleep(5)
+                    rospy.sleep(10)
                     # Reset parameters and choose next action
                     self.robotpos = 0
                     self.initialized = False
                     self.choose_next_action()
+                    # self.iterations_object = 0
                     self.taking_to_tag = False
                     # self.choose_next_action()
-                    self.iteration += 1
+                    
                     rospy.sleep(2)
         else: # When we're looking for dumbells 
-            for i in range (20):
+            r = 0
+            l = 0
+            for i in range (10):
                 r = data.ranges[-i]
                 l = data.ranges[i]
-                print("r and l are", r , l)
-                if ((r <= 0.24 and r > 0.22) or (l <= 0.24 and l >0.22)) and self.robotpos==0:
+                # print("r and l are", i, r , l)
+                print(self.taking_to_tag)
+                if ((r <= 0.22 and r > 0.2) or (l <= 0.22 and l >0.2)) and self.robotpos == 0 and self.taking_to_tag == False:
                     print("ready to pick up")
                     self.robotpos = 1
                     my_twist = Twist(linear=Vector3(0.0, 0, 0), angular=Vector3(0, 0, 0))
@@ -311,11 +317,19 @@ class QAction(object):
                     arm_joint_goal = [0.0, math.radians(-75), 0.0, 0.0]
                     self.move_group_arm.go(arm_joint_goal)
                     self.move_group_arm.stop()
-                    rospy.sleep(7)
+                    rospy.sleep(10)
+
+                    my_twist = Twist(linear=Vector3(-0.2, 0, 0), angular=Vector3(0, 0, 0))
+                    self.robot_movement_pub.publish(my_twist)
+                    print("going back")
+                    rospy.sleep(1)
+                    my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0))
+                    self.robot_movement_pub.publish(my_twist)
+                    rospy.sleep(5)
 
                     self.taking_to_tag = True
                     print("Switched to taking to tag")
-                    # Turning and seeing the tag is incorporated in the image callback
+                # Turning and seeing the tag is incorporated in the image callback
 
     
     def run(self):
