@@ -63,6 +63,10 @@ Based off a fixed number of iterations without change in updated reward values (
 -	Location: inside the update_q_matrix function
 -	Description: There are two ways in which we would decide when to stop iterating through the algorithm. Firstly, the variable iterations measures the number of iterations since the matrix was last updated. Through trial and error we found that 75 is a suitable number of such iterations to make sure that the matrix has converged. The second way is the count variable which measures the total number of iterations through the algorithm. We keep iterating until count reaches 1000, which we also decided would be a suitable cap on the number of iterations (through a series of experiments) to make sure that the matrix has converged. Therefore, if there are constantly less than 75 iterations without an update, we will stop iterating after 1000 iterations.
 
+#### Executing the path most likely to lead to receiving a reward
+- Location: Inside q_action.py, inside choose_next_action method
+- Description: We used a greedy algorithm, choosing the action that maximized the reward in each state the turtlebot was in. 
+
 
 ### Robot perception description
 
@@ -72,7 +76,7 @@ Based off a fixed number of iterations without change in updated reward values (
 
 #### Identifying the locations and identities of each of the AR tags
 - Location: if (self.taking_to_tag) portion of both process_scan and image_callback
-- Description:
+- Description: In order to identify the locations and identities of the AR tags we used the python aruco library. The ids array would contain the tags that were identified by the camera, while the corners array contained the coordinates of the 4 corners of the respective tags. We took the average of the x and y values of those corners to identify the center of each tag, which we then moved towards using proportional control. 
 
 ### Robot manipulation and movement
 
@@ -85,8 +89,12 @@ Based off a fixed number of iterations without change in updated reward values (
 - Description: As mentioned above, the robot stops once the scanner detects the object is right in front of it. Once that happens, the arm immediately descends to grab the the midportion of the object, when the gripper closes, before the arm brings the object parallel, over the robot. There are significant usage of rospy.sleep to make sure the arm finishes its movements properly before going to the next movement. 
 
 #### Moving to the desired destination (AR tag) with the colored object
+- Location: if (self.taking_to_tag) portion of image_callback
+- Description: Once we picked up the object, we transitioned into the taking_to_tag state, where the robot would rotate until it saw the desired tag (until the tag was in the ids array). After that, it would identify the center of that tag and move towards it using proportional control. Once close enough, it would stop and would start lowering down the object. 
 
 #### Putting the colored object back down at the desired destination
+- Location: if (self.taking_to_tag) portion of process_scan
+- Description: Once the robot got close enough to the tag (the wall in our case), which it would sense from its Lidar readings, it would move the robot arm into its initialization position, dropping the colored object in front of the desired tag. 
 
 
 ### Challenges
@@ -98,3 +106,19 @@ Our state transitions were incredibly bulky, and so if we had more time, I think
 ### Takeaways
 - Transitionning between states, although incredibly difficult, is something that we both now have a much better understanding of now. In future projects, we should be able to more efficiently use flags to do these transitions, allowing our robot to do a better job of properly multitasking.
 - The other important thing we learned was how to properly use message files to publish and receive information between different nodes. This was useful when moving from our Q-matrix to choosing actions, and which should prove to be a good foundation for our final project, where we will have the robot play tic-tac-toe. 
+
+
+## Videos
+
+
+![Alt Text](https://github.com/khaidarovs/q_learning_project/blob/main/q1.gif)
+
+![Alt Text](https://github.com/khaidarovs/q_learning_project/blob/main/q2.gif)
+
+![Alt Text](https://github.com/khaidarovs/q_learning_project/blob/main/q3.gif)
+
+![Alt Text](https://github.com/khaidarovs/q_learning_project/blob/main/q4.gif)
+
+![Alt Text](https://github.com/khaidarovs/q_learning_project/blob/main/q5.gif)
+
+![Alt Text](https://github.com/khaidarovs/q_learning_project/blob/main/q6.gif)
