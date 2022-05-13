@@ -104,12 +104,12 @@ class QAction(object):
             if reward == max_reward:
                 actions.append(action)
         next_action = np.random.choice(actions)
-        # next_action = self.q[self.state].tolist().index(max(self.q[self.state]))
+        
         new_state = self.action_matrix[self.state].tolist().index(next_action)
         self.state = new_state
         self.object = self.actions[next_action]["object"]
         self.tag = int(self.actions[next_action]["tag"])
-        #print("tag is initialized and it is", self.tag)
+        
         print(self.object)
         self.initialized = True
         return 
@@ -117,13 +117,11 @@ class QAction(object):
     def image_callback(self, msg):
 
         if (not self.initialized):
-           # print("initializing ...")
+           
             return
 
         if (self.taking_to_tag): # When we have the dumbell and travelling to the tag
-            #print("In tag branch and pos is", self.robotpos)
-            #my_twist = Twist(linear=Vector3(0.0, 0, 0)) # make robot stop at the beginning
-            #self.robot_movement_pub.publish(my_twist)
+            
 
             # take the ROS message with the image and turn it into a format cv2 can use
             img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
@@ -133,26 +131,13 @@ class QAction(object):
 
             # search for tags from DICT_4X4_50 in a GRAYSCALE image
             corners, ids, rejected_points = cv2.aruco.detectMarkers(grayscale_image, self.aruco_dict)
-            #print("ids is", ids)
-           # if ids is None:
-                #my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0.1))
-                #self.robot_movement_pub.publish(my_twist)
-                # img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-                # grayscale_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                # corners, ids, rejected_points = cv2.aruco.detectMarkers(grayscale_image, self.aruco_dict)
-                # print("ids is", ids)
-                #return
-            #if [self.tag] not in ids:
+            
+          
             if self.robotpos == 1:
                 my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0.1))
                 self.robot_movement_pub.publish(my_twist)
-                # img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-                # grayscale_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                # corners, ids, rejected_points = cv2.aruco.detectMarkers(grayscale_image, self.aruco_dict)
-                #return
-
-            #my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0))
-            #self.robot_movement_pub.publish(my_twist)
+               
+           
             if (ids is not None) and [self.tag] in ids:
                 index_of_id = ids.tolist().index([self.tag])
                 sum_x = 0
@@ -164,22 +149,14 @@ class QAction(object):
                 cy = sum_y / 4
 
                 if self.robotpos == 1: # Robot will move until it's close enough to the tag
-                #    print("moving")
+                
                     my_twist = Twist(linear=Vector3(0.05, 0, 0), angular=Vector3(0, 0, 0.001*(-cx + 160)))
                     self.robot_movement_pub.publish(my_twist)
 
                 
-            # cv2.imshow("window", img) 
-            # cv2.waitKey(3)
+            
         else:
-            #print("In the object branch")
-            #print("pos is", self.robotpos)
-            self.iterations_object += 1
-            # if self.iteration > 1:
-            #    my_twist = Twist(linear=Vector3(-1, 0, 0)) # make the robot stop
-            #    self.robot_movement_pub.publish(my_twist)
-            #my_twist = Twist(linear=Vector3(0.0, 0, 0)) # make the robot stop
-            #self.robot_movement_pub.publish(my_twist)
+            
             
             # converts the incoming ROS message to OpenCV format and HSV (hue, saturation, value)
             image = self.bridge.imgmsg_to_cv2(msg,desired_encoding='bgr8')
@@ -196,10 +173,9 @@ class QAction(object):
             lower_pink = np.array([120, 60, 60]) 
             upper_pink = np.array([170, 255, 255])
 
-            # this erases all pixels that aren't blue
+            # this erases all pixels that aren't the right color (the default as blue doesn't do anything except avoid an error when the color hasn't been initialized yet) 
             mask = cv2.inRange(hsv, lower_blue, upper_blue)
-            # print("mask is", mask)
-
+            
             if self.object == "pink":
                 mask = cv2.inRange(hsv, lower_pink, upper_pink)
             elif self.object == "green":
@@ -212,9 +188,8 @@ class QAction(object):
 
             # using moments() function, the center of the pixels is determined
             M = cv2.moments(mask)
-            # print("M is", M)
-
-            # TODO
+            
+           
             # if there are no pixels found keep turning until we do find pixels of that color
             
             if M['m00'] > 0 and self.robotpos == 0:
@@ -223,8 +198,7 @@ class QAction(object):
                 cx = int(M['m10']/M['m00'])
                 cy = int(M['m01']/M['m00'])
 
-                # print(cx, cy)
-              #  print("moving towards object")
+            
                 cv2.circle(image, (cx, cy), 20, (0,0,255), -1)
                 my_twist = Twist(linear=Vector3(0.1, 0, 0), angular=Vector3(0, 0, 0.002*(-cx + 160)))                                
                 self.robot_movement_pub.publish(my_twist)
@@ -233,31 +207,27 @@ class QAction(object):
                 self.robot_movement_pub.publish(my_twist)
 
                         
-            # shows the debugging window
-            
-            # cv2.imshow("window", image) 
-            # cv2.waitKey(3)
+          
 
 
     def process_scan(self, data):
 
         if (not self.initialized):
-            #print("initializing ...")
+           
             return
 
         if (self.taking_to_tag):# Taking to tag case
             for i in range (5):
                 r = data.ranges[-i]
                 l = data.ranges[i]
-                # print("r is ", r)
-                # print("l is ", l)
+               
                 if ((r <= 0.4 and r > 0.35) or (l <= 0.4 and l > 0.35)) and self.robotpos == 1: 
-                    #print("ready to put down")
+                   
                     self.robotpos = 2
                     my_twist = Twist(linear=Vector3(0.0, 0, 0), angular=Vector3(0, 0, 0))
                     self.robot_movement_pub.publish(my_twist) # stop
                     # Put the dumbell down
-                    # self.robotpos = 0
+                
                 
                     arm_joint_goal = [0.0, 0.0, 0.0, 0.0]
                     self.move_group_arm.go(arm_joint_goal)
@@ -277,11 +247,9 @@ class QAction(object):
                     #drive back and start turning
                     my_twist = Twist(linear=Vector3(-0.2, 0, 0), angular=Vector3(0, 0, 0.6))
                     self.robot_movement_pub.publish(my_twist)
-                    #print("going back")
+                    
                     rospy.sleep(2)
-                    # my_twist = Twist(linear=Vector3(0.1, 0, 0), angular=Vector3(0, 0, 0))
-                    # self.robot_movement_pub.publish(my_twist)
-                    # rospy.sleep(3)
+               
                     my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0))
                     self.robot_movement_pub.publish(my_twist)
                     rospy.sleep(10)
@@ -289,9 +257,9 @@ class QAction(object):
                     self.robotpos = 0
                     self.initialized = False
                     self.choose_next_action()
-                    # self.iterations_object = 0
+                
                     self.taking_to_tag = False
-                    # self.choose_next_action()
+   
                     
                     rospy.sleep(2)
         else: # When we're looking for dumbells 
@@ -301,10 +269,9 @@ class QAction(object):
             for i in range (10):
                 r = data.ranges[-i]
                 l = data.ranges[i]
-                # print("r and l are", i, r , l)
-                #print(self.taking_to_tag)
+              
                 if ((r <= 0.22 and r > 0.2) or (l <= 0.22 and l >0.2)) and self.robotpos == 0 and self.taking_to_tag == False and self.color == True:
-                    #print("ready to pick up")
+                    
                     self.robotpos = 1
                     my_twist = Twist(linear=Vector3(0.0, 0, 0), angular=Vector3(0, 0, 0))
                     self.robot_movement_pub.publish(my_twist)
@@ -325,7 +292,7 @@ class QAction(object):
 
                     my_twist = Twist(linear=Vector3(-0.2, 0, 0), angular=Vector3(0, 0, 0.5))
                     self.robot_movement_pub.publish(my_twist)
-                    #print("going back")
+                   
                     rospy.sleep(1)
                     my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0))
                     self.robot_movement_pub.publish(my_twist)
@@ -333,8 +300,7 @@ class QAction(object):
 
                     self.taking_to_tag = True
                     self.color = False
-                  #  print("Switched to taking to tag")
-                # Turning and seeing the tag is incorporated in the image callback
+              
 
     
     def run(self):
@@ -343,11 +309,10 @@ class QAction(object):
         # Choose the first action
         self.choose_next_action()
         # Give time to initialize
-        # rospy.sleep(5)
+     
         # Keep the program running for 3 iterations
         rospy.spin()
-        # while self.iteration < 4:
-        #     rospy.spin()
+   
 
 if __name__ == "__main__":
     node = QAction()
