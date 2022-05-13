@@ -66,6 +66,8 @@ class QAction(object):
         # Global variable to control for distance to object
         self.robotpos = 0
                 
+            
+        #set the robot arm and gripper to its default state 
         self.move_group_arm = moveit_commander.MoveGroupCommander("arm")
         self.move_group_gripper = moveit_commander.MoveGroupCommander("gripper")
                 
@@ -92,6 +94,7 @@ class QAction(object):
         # Publish robot movements
         self.robot_movement_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
+        #setup global flags to be used when transitioning between movements
         self.initialized = False
         self.color = False
         self.iterations_object = 0
@@ -155,14 +158,14 @@ class QAction(object):
 
                 
             
-        else:
+        else: #looking for object
             
             
             # converts the incoming ROS message to OpenCV format and HSV (hue, saturation, value)
             image = self.bridge.imgmsg_to_cv2(msg,desired_encoding='bgr8')
             hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-           # print("Color is", self.object)
+          
 
             lower_blue = np.array([90, 60, 60]) 
             upper_blue = np.array([90, 255, 255]) 
@@ -198,10 +201,12 @@ class QAction(object):
                 cx = int(M['m10']/M['m00'])
                 cy = int(M['m01']/M['m00'])
 
-            
+                #turns and moves towards the center of the pixels
                 cv2.circle(image, (cx, cy), 20, (0,0,255), -1)
                 my_twist = Twist(linear=Vector3(0.1, 0, 0), angular=Vector3(0, 0, 0.002*(-cx + 160)))                                
                 self.robot_movement_pub.publish(my_twist)
+            
+            #turns until it finds the fixels of the right color
             elif self.robotpos == 0:
                 my_twist = Twist(linear=Vector3(0, 0, 0), angular=Vector3(0, 0, 0.05))                                
                 self.robot_movement_pub.publish(my_twist)
@@ -221,7 +226,7 @@ class QAction(object):
                 r = data.ranges[-i]
                 l = data.ranges[i]
                
-                if ((r <= 0.4 and r > 0.35) or (l <= 0.4 and l > 0.35)) and self.robotpos == 1: 
+                if ((r <= 0.4 and r > 0.35) or (l <= 0.4 and l > 0.35)) and self.robotpos == 1:  
                    
                     self.robotpos = 2
                     my_twist = Twist(linear=Vector3(0.0, 0, 0), angular=Vector3(0, 0, 0))
@@ -271,11 +276,12 @@ class QAction(object):
                 l = data.ranges[i]
               
                 if ((r <= 0.22 and r > 0.2) or (l <= 0.22 and l >0.2)) and self.robotpos == 0 and self.taking_to_tag == False and self.color == True:
-                    
+                    #stops
                     self.robotpos = 1
                     my_twist = Twist(linear=Vector3(0.0, 0, 0), angular=Vector3(0, 0, 0))
                     self.robot_movement_pub.publish(my_twist)
-
+                    
+                    #picks up dumbell
                     arm_joint_goal = [math.radians(min(r, l)), math.radians(20.0), 0.0, 0.0]
                     self.move_group_arm.go(arm_joint_goal)
                     self.move_group_arm.stop()
@@ -298,6 +304,7 @@ class QAction(object):
                     self.robot_movement_pub.publish(my_twist)
                     rospy.sleep(5)
 
+                    #start looking for ar tag
                     self.taking_to_tag = True
                     self.color = False
               
